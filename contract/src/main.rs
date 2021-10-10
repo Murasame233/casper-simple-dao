@@ -7,8 +7,10 @@ compile_error!("target arch should be wasm32: compile with '--target wasm32-unkn
 // We need to explicitly import the std alloc crate and `alloc::string::String` as we're in a
 // `no_std` environment.
 extern crate alloc;
+mod accounting;
 mod error;
 mod join;
+mod online;
 mod plan;
 
 use alloc::{
@@ -24,6 +26,8 @@ use casper_types::{
     contracts::NamedKeys, CLType, ContractHash, EntryPoint, EntryPointAccess, EntryPointType,
     EntryPoints, Key, Parameter,
 };
+
+use crate::online::online_entries;
 
 #[no_mangle]
 pub extern "C" fn call() {
@@ -69,7 +73,7 @@ pub extern "C" fn call() {
         runtime::get_key("DAO_contract_hash").unwrap(),
     );
 
-    let mut entries = EntryPoints::new();
+    let mut entries = online_entries();
     add_join_entry(&mut entries);
     add_plan_entry(&mut entries);
     let (package_hash, _) = storage::create_contract_package_at_hash();
