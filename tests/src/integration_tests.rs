@@ -2,7 +2,9 @@
 mod tests {
 
     use casper_engine_test_support::{Code, SessionBuilder, TestContextBuilder};
-    use casper_types::{runtime_args, AsymmetricType, ContractHash, PublicKey, RuntimeArgs, U512};
+    use casper_types::{
+        runtime_args, AsymmetricType, ContractHash, PublicKey, RuntimeArgs, U256, U512,
+    };
 
     const ACCOUNT_A: [u8; 32] = [3u8; 32];
     const ACCOUNT_B: [u8; 32] = [6u8; 32];
@@ -75,7 +77,7 @@ mod tests {
             .into_t()
             .unwrap();
 
-            let status: String = context
+        let status: String = context
             .query(account_a, &["status".into()])
             .unwrap()
             .into_t()
@@ -94,18 +96,39 @@ mod tests {
         context.run(proposal);
 
         let vote_code = Code::Hash(hash.value(), "vote".into());
-        let proposal = SessionBuilder::new(vote_code, runtime_args! {"vote" => true})
+        let vote = SessionBuilder::new(vote_code, runtime_args! {"vote" => true})
             .with_address(account_b)
             .with_authorization_keys(&[account_b])
             .build();
-        context.run(proposal);
+        context.run(vote);
 
         let status: String = context
             .query(account_a, &["status".into()])
             .unwrap()
             .into_t()
             .unwrap();
-        assert_eq!(status, "online".to_string())
+        assert_eq!(status, "online".to_string());
+
+        let new_hash: ContractHash = context
+            .query(account_a, &["DAO_contract_hash".into()])
+            .unwrap()
+            .into_t()
+            .unwrap();
+
+        let proposal_code = Code::Hash(new_hash.value(), "new_proposal".into());
+        let proposal = SessionBuilder::new(
+            proposal_code,
+            runtime_args! {   "proposal"=> String::from("update reward 2"),
+            "vote_limit"=> U256::from(20),
+            "vote" => true,
+            "amount"=> U256::from(1)},
+        )
+        .with_address(account_a)
+        .with_authorization_keys(&[account_a])
+        .build();
+        dbg!(context.get_account(account_a).unwrap().named_keys());
+        context.run(proposal);
+        dbg!(context.get_account(account_a).unwrap().named_keys());
     }
 }
 
