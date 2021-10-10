@@ -1,4 +1,4 @@
-use alloc::{string::String, vec, vec::Vec};
+use alloc::{string::{String, ToString}, vec, vec::Vec};
 use casper_contract::contract_api::{
     runtime::{self, get_caller, get_named_arg, revert},
     storage,
@@ -30,8 +30,8 @@ pub extern "C" fn proposal() {
 pub extern "C" fn vote() {
     gardian("plan".into());
     judge_original();
-    if runtime::has_key("vote") {
-        revert(PlanError::AlreadyHaveProposal);
+    if !runtime::has_key("vote") {
+        revert(PlanError::NoProposal);
     };
     let judge: bool = runtime::get_named_arg("vote");
     let mut vote =
@@ -54,7 +54,12 @@ pub extern "C" fn vote() {
         };
     }
 }
-fn plan_to_online() {}
+fn plan_to_online() {
+    storage::write(
+        runtime::get_key("status").unwrap().into_uref().unwrap(),
+        "online".to_string(),
+    );
+}
 fn judge_original() {
     let caller = runtime::get_caller();
     let originals: Vec<AccountHash> = {

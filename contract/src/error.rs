@@ -15,6 +15,7 @@ impl From<CreateError> for ApiError {
 pub enum PlanError {
     NotOriginal = 0,
     AlreadyHaveProposal = 1,
+    NoProposal = 2,
 }
 
 impl From<PlanError> for ApiError {
