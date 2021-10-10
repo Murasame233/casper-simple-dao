@@ -34,3 +34,20 @@ impl From<Error> for ApiError {
         ApiError::User(error as u16)
     }
 }
+
+#[repr(u16)]
+pub enum OnlineError {
+    UserHaveNoEnoughToken = 0,
+    HaveUnFinishProposal = 1,
+    InValidProposal = 2,
+    NoPermission = 3,
+    NoZero = 4,
+    TooSmall = 5,
+    AmountTooBig= 6,
+}
+
+impl From<OnlineError> for ApiError {
+    fn from(error: OnlineError) -> Self {
+        ApiError::User(error as u16)
+    }
+}
