@@ -75,6 +75,13 @@ mod tests {
             .into_t()
             .unwrap();
 
+            let status: String = context
+            .query(account_a, &["status".into()])
+            .unwrap()
+            .into_t()
+            .unwrap();
+        assert_eq!(status, "plan".to_string());
+
         // proposal
         let proposal_code = Code::Hash(hash.value(), "proposal".into());
         let proposal = SessionBuilder::new(
@@ -85,6 +92,20 @@ mod tests {
         .with_authorization_keys(&[account_a])
         .build();
         context.run(proposal);
+
+        let vote_code = Code::Hash(hash.value(), "vote".into());
+        let proposal = SessionBuilder::new(vote_code, runtime_args! {"vote" => true})
+            .with_address(account_b)
+            .with_authorization_keys(&[account_b])
+            .build();
+        context.run(proposal);
+
+        let status: String = context
+            .query(account_a, &["status".into()])
+            .unwrap()
+            .into_t()
+            .unwrap();
+        assert_eq!(status, "online".to_string())
     }
 }
 
