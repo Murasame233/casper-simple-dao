@@ -7,54 +7,125 @@ compile_error!("target arch should be wasm32: compile with '--target wasm32-unkn
 // We need to explicitly import the std alloc crate and `alloc::string::String` as we're in a
 // `no_std` environment.
 extern crate alloc;
+mod error;
+mod join;
+mod plan;
 
-use alloc::string::String;
-
-use casper_contract::{
-    contract_api::{runtime, storage},
-    unwrap_or_revert::UnwrapOrRevert,
+use alloc::{
+    string::{String, ToString},
+    vec,
 };
-use casper_types::{ApiError, Key};
 
-const KEY_NAME: &str = "my-key-name";
-const RUNTIME_ARG_NAME: &str = "message";
-
-/// An error enum which can be converted to a `u16` so it can be returned as an `ApiError::User`.
-#[repr(u16)]
-enum Error {
-    KeyAlreadyExists = 0,
-    KeyMismatch = 1,
-}
-
-impl From<Error> for ApiError {
-    fn from(error: Error) -> Self {
-        ApiError::User(error as u16)
-    }
-}
+use casper_contract::contract_api::{
+    runtime::{self, revert},
+    storage,
+};
+use casper_types::{
+    contracts::NamedKeys, CLType, ContractHash, EntryPoint, EntryPointAccess, EntryPointType,
+    EntryPoints, Key, Parameter,
+};
 
 #[no_mangle]
 pub extern "C" fn call() {
-    // The key shouldn't already exist in the named keys.
-    let missing_key = runtime::get_key(KEY_NAME);
-    if missing_key.is_some() {
-        runtime::revert(Error::KeyAlreadyExists);
-    }
+    // Variable on the storage:
+    // - name: String (DAO name)
+    // - originals: Vec<AccountHash> (the three people who create)
+    // - status: String ( join | plan | online )
+    // - DAO_contract_hash: ContractHash
+    // - plan: String (format "{supply}")
 
-    // This contract expects a single runtime argument to be provided.  The arg is named "message"
-    // and will be of type `String`.
-    let value: String = runtime::get_named_arg(RUNTIME_ARG_NAME);
+    // Parse DAO name
+    let name: String = runtime::get_named_arg("name");
+    let name_uref = storage::new_uref(name);
+    runtime::put_key("name", Key::URef(name_uref));
 
-    // Store this value under a new unforgeable reference a.k.a `URef`.
-    let value_ref = storage::new_uref(value);
+    // Parse creator to originals
+    let creator = runtime::get_caller();
+    let originals = vec![creator];
+    let originals_uref = storage::new_uref(originals).into_read_write();
+    runtime::put_key("originals", Key::URef(originals_uref));
 
-    // Store the new `URef` as a named key with a name of `KEY_NAME`.
-    let key = Key::URef(value_ref);
-    runtime::put_key(KEY_NAME, key);
+    // status
+    let name_uref = storage::new_uref("create".to_string());
+    runtime::put_key("status", Key::URef(name_uref));
 
-    // The key should now be able to be retrieved.  Note that if `get_key()` returns `None`, then
-    // `unwrap_or_revert()` will exit the process, returning `ApiError::None`.
-    let retrieved_key = runtime::get_key(KEY_NAME).unwrap_or_revert();
-    if retrieved_key != key {
-        runtime::revert(Error::KeyMismatch);
+    // hash placeholder
+    let c_hash = ContractHash::new([8u8; 32]);
+    let c_hash_uref = storage::new_uref(c_hash).into_read_write();
+    runtime::put_key("DAO_contract_hash", Key::URef(c_hash_uref));
+
+    // plan
+    let name_uref = storage::new_uref("".to_string());
+    runtime::put_key("plan", Key::URef(name_uref));
+
+    // update contract
+    let mut keys = NamedKeys::new();
+    keys.insert("name".into(), runtime::get_key("name").unwrap());
+    keys.insert("originals".into(), runtime::get_key("originals").unwrap());
+    keys.insert("status".into(), runtime::get_key("status").unwrap());
+    keys.insert("plan".into(), runtime::get_key("plan").unwrap());
+    keys.insert(
+        "DAO_contract_hash".into(),
+        runtime::get_key("DAO_contract_hash").unwrap(),
+    );
+
+    let mut entries = EntryPoints::new();
+    add_join_entry(&mut entries);
+    add_plan_entry(&mut entries);
+    let (package_hash, _) = storage::create_contract_package_at_hash();
+    let (hash, _) = storage::add_contract_version(package_hash, entries, keys);
+
+    // update hash
+    storage::write(
+        runtime::get_key("DAO_contract_hash")
+            .unwrap()
+            .into_uref()
+            .unwrap(),
+        hash,
+    );
+
+    // update status
+    storage::write(
+        runtime::get_key("status").unwrap().into_uref().unwrap(),
+        "join".to_string(),
+    );
+}
+
+fn add_join_entry(entries: &mut EntryPoints) {
+    entries.add_entry_point(EntryPoint::new(
+        "join",
+        vec![],
+        CLType::Unit,
+        EntryPointAccess::Public,
+        casper_types::EntryPointType::Contract,
+    ));
+}
+
+pub fn add_plan_entry(entries: &mut EntryPoints) {
+    // for originals create proposal
+    entries.add_entry_point(EntryPoint::new(
+        "proposal",
+        vec![Parameter::new("plan", CLType::String)],
+        CLType::Unit,
+        EntryPointAccess::Public,
+        EntryPointType::Contract,
+    ));
+    // for vote proposal
+    entries.add_entry_point(EntryPoint::new(
+        "vote",
+        vec![Parameter::new("vote", CLType::Bool)],
+        CLType::Unit,
+        EntryPointAccess::Public,
+        EntryPointType::Contract,
+    ));
+}
+
+fn gardian(accept: String) {
+    if accept
+        != storage::read::<String>(runtime::get_key("status").unwrap().into_uref().unwrap())
+            .unwrap()
+            .unwrap()
+    {
+        revert(error::Error::UnOpenEntry)
     }
 }
