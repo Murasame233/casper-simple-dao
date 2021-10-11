@@ -1,6 +1,9 @@
 # Intro 
 This project implement a simple DAO on casper blockchain.
 
+# explain 
+`./design.md`
+
 # run test
 `make test`
 
