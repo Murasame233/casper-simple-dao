@@ -16,6 +16,7 @@ mod plan;
 use alloc::{
     string::{String, ToString},
     vec,
+    vec::Vec,
 };
 
 use casper_contract::contract_api::{
@@ -23,8 +24,8 @@ use casper_contract::contract_api::{
     storage,
 };
 use casper_types::{
-    contracts::NamedKeys, CLType, ContractHash, EntryPoint, EntryPointAccess, EntryPointType,
-    EntryPoints, Key, Parameter,
+    account::AccountHash, contracts::NamedKeys, CLType, ContractHash, EntryPoint, EntryPointAccess,
+    EntryPointType, EntryPoints, Key, Parameter, U256,
 };
 
 use crate::online::online_entries;
@@ -62,12 +63,18 @@ pub extern "C" fn call() {
     let name_uref = storage::new_uref("".to_string());
     runtime::put_key("plan", Key::URef(name_uref));
 
+    // Accounting
+    let accounting: Vec<(AccountHash, U256)> = vec![];
+    let accounting_uref = storage::new_uref(accounting);
+    runtime::put_key("accounting", Key::URef(accounting_uref));
+
     // update contract
     let mut keys = NamedKeys::new();
     keys.insert("name".into(), runtime::get_key("name").unwrap());
     keys.insert("originals".into(), runtime::get_key("originals").unwrap());
     keys.insert("status".into(), runtime::get_key("status").unwrap());
     keys.insert("plan".into(), runtime::get_key("plan").unwrap());
+    keys.insert("accounting".into(), runtime::get_key("accounting").unwrap());
     keys.insert(
         "DAO_contract_hash".into(),
         runtime::get_key("DAO_contract_hash").unwrap(),

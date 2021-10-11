@@ -77,7 +77,8 @@ fn plan_to_online() {
         storage::read::<Vec<AccountHash>>(uref).unwrap().unwrap()
     };
     let v: Vec<(AccountHash, U256)> = originals.into_iter().map(|f| (f, sup / 100 * 30)).collect();
-    keys.insert("accounting".into(), Key::URef(storage::new_uref(v)));
+    storage::write(runtime::get_key("accounting").unwrap().into_uref().unwrap(), v);
+    keys.insert("accounting".into(), runtime::get_key("accounting").unwrap());
     keys.insert(
         "pledges".into(),
         Key::URef(storage::new_uref::<Option<Vec<(AccountHash, U256, bool)>>>(None)),

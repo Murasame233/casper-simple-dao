@@ -1,5 +1,9 @@
 use core::ops::Div;
 
+use crate::{
+    accounting::{add, get_accounting, reduce},
+    error::OnlineError,
+};
 use alloc::{
     string::{String, ToString},
     vec,
@@ -11,11 +15,6 @@ use casper_contract::contract_api::{
 };
 use casper_types::{
     account::AccountHash, CLType, EntryPoint, EntryPoints, Parameter, PublicKey, U256,
-};
-
-use crate::{
-    accounting::{add, get_accounting, reduce},
-    error::OnlineError,
 };
 
 // ============================
@@ -56,7 +55,7 @@ fn pledges(account: AccountHash, amount: U256, vote: bool) {
 }
 fn pledges_back(result: bool) {
     let pledges: Vec<(AccountHash, U256, bool)> = read_key::<Option<_>>("pledges").unwrap();
-    drop(pledges.into_iter().map(|(account, amount, vote)| {
+    pledges.into_iter().map(|(account, amount, vote)| {
         add(account, amount);
         if vote == result {
             let reward: U256 =
@@ -66,12 +65,10 @@ fn pledges_back(result: bool) {
 
             mint_to(account, reward);
         }
-    }));
+    }).count();
 }
 fn execute() {
-    let order: String = storage::read(runtime::get_key("proposal").unwrap().into_uref().unwrap())
-        .unwrap()
-        .unwrap();
+    let order: String = read_key::<Option<_>>("proposal").unwrap();
     let mut s = order.split_ascii_whitespace();
     let method = s.next().unwrap().to_string();
     if &method == "mint" {
@@ -120,10 +117,10 @@ pub extern "C" fn vote_by_pledges() {
         revert(OnlineError::NoZero)
     }
     let vote: bool = runtime::get_named_arg("vote");
-    let vote_limit: U256 = read_key("vote_limit");
+    let vote_limit: U256 = read_key::<Option<_>>("vote_limit").unwrap();
 
     pledges(account, amount, vote);
-    let mut pool: (U256, U256) =read_key::<Option<_>>("pool").unwrap();
+    let mut pool: (U256, U256) = read_key::<Option<_>>("pool").unwrap();
 
     if vote {
         pool = (pool.0 + amount, pool.1);
@@ -137,8 +134,8 @@ pub extern "C" fn vote_by_pledges() {
         if pool.0 > pool.1 {
             execute()
         }
-        runtime::remove_key("proposal");
-        runtime::remove_key("vote_limit");
+        update_key::<Option<String>>("proposal",None);
+        update_key::<Option<U256>>("vote_limit",None);
     } else {
         storage::write(runtime::get_key("pool").unwrap().into_uref().unwrap(), pool);
     }
@@ -204,7 +201,7 @@ pub extern "C" fn new_proposal() {
                 pool = (pool.0, pool.1 + amount);
             }
         }
-        update_key("pool", pool);
+        update_key("pool", Some(pool));
     }
 }
 

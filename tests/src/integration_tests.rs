@@ -3,7 +3,8 @@ mod tests {
 
     use casper_engine_test_support::{Code, SessionBuilder, TestContextBuilder};
     use casper_types::{
-        runtime_args, AsymmetricType, ContractHash, PublicKey, RuntimeArgs, U256, U512,
+        account::AccountHash, runtime_args, AsymmetricType, ContractHash, PublicKey, RuntimeArgs,
+        U256, U512,
     };
 
     const ACCOUNT_A: [u8; 32] = [3u8; 32];
@@ -84,7 +85,7 @@ mod tests {
             .unwrap();
         assert_eq!(status, "plan".to_string());
 
-        // proposal
+        // proposal for plam
         let proposal_code = Code::Hash(hash.value(), "proposal".into());
         let proposal = SessionBuilder::new(
             proposal_code,
@@ -109,11 +110,18 @@ mod tests {
             .unwrap();
         assert_eq!(status, "online".to_string());
 
+        // now it's online
         let new_hash: ContractHash = context
             .query(account_a, &["DAO_contract_hash".into()])
             .unwrap()
             .into_t()
             .unwrap();
+
+        dbg!(context
+            .query(account_a, &["accounting".into()])
+            .unwrap()
+            .into_t::<Vec<(AccountHash, U256)>>()
+            .unwrap());
 
         let proposal_code = Code::Hash(new_hash.value(), "new_proposal".into());
         let proposal = SessionBuilder::new(
@@ -126,9 +134,30 @@ mod tests {
         .with_address(account_a)
         .with_authorization_keys(&[account_a])
         .build();
-        dbg!(context.get_account(account_a).unwrap().named_keys());
         context.run(proposal);
-        dbg!(context.get_account(account_a).unwrap().named_keys());
+        dbg!(context
+            .query(account_a, &["accounting".into()])
+            .unwrap()
+            .into_t::<Vec<(AccountHash, U256)>>()
+            .unwrap());
+
+        let vote_code = Code::Hash(new_hash.value(), "vote_by_pledges".into());
+        let vote = SessionBuilder::new(
+            vote_code,
+            runtime_args! {
+            "vote" => true,
+            "amount"=> U256::from(20)},
+        )
+        .with_address(account_b)
+        .with_authorization_keys(&[account_b])
+        .build();
+        context.run(vote);
+
+        dbg!(context
+            .query(account_a, &["accounting".into()])
+            .unwrap()
+            .into_t::<Vec<(AccountHash, U256)>>()
+            .unwrap());
     }
 }
 
