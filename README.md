@@ -19,4 +19,3 @@ I cannot connect test-net for test.
 ask me on the `issue`
 
 I would be happy to answer your questions
-s
