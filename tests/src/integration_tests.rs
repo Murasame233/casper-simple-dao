@@ -30,6 +30,7 @@ mod tests {
             .build();
 
         println!("prepare finished");
+
         // Deploy contract
         let contract_code = Code::from("contract.wasm");
         let create_args = runtime_args! {
@@ -57,7 +58,7 @@ mod tests {
             "join".to_string()
         );
 
-        // join
+        // join other originals
         let join_code = Code::Hash(hash.value(), "join".into());
         let join_b = SessionBuilder::new(join_code, runtime_args! {})
             .with_address(account_b)
@@ -71,6 +72,7 @@ mod tests {
             .build();
         context.run(join_b);
         context.run(join_c);
+
         // get new hash
         let hash: ContractHash = context
             .query(account_a, &["DAO_contract_hash".into()])
@@ -85,7 +87,7 @@ mod tests {
             .unwrap();
         assert_eq!(status, "plan".to_string());
 
-        // proposal for plam
+        // proposal for plan
         let proposal_code = Code::Hash(hash.value(), "proposal".into());
         let proposal = SessionBuilder::new(
             proposal_code,
@@ -96,6 +98,8 @@ mod tests {
         .build();
         context.run(proposal);
 
+        // vote for plan
+        // when upvote hit to two people, plan goes online
         let vote_code = Code::Hash(hash.value(), "vote".into());
         let vote = SessionBuilder::new(vote_code, runtime_args! {"vote" => true})
             .with_address(account_b)
@@ -111,18 +115,25 @@ mod tests {
         assert_eq!(status, "online".to_string());
 
         // now it's online
+        // And we can get online contract hash for further call
         let new_hash: ContractHash = context
             .query(account_a, &["DAO_contract_hash".into()])
             .unwrap()
             .into_t()
             .unwrap();
 
-        dbg!(context
+        println!("Now DAO is online");
+
+        // this will show every originals account have `10000000` token
+        context
             .query(account_a, &["accounting".into()])
             .unwrap()
             .into_t::<Vec<(AccountHash, U256)>>()
-            .unwrap());
+            .unwrap().into_iter().enumerate().map(|(index,(_,f))|{
+                println!("User {}: {}",&index,f)
+            }).count();
 
+        // now create a proposal that will udpate reward to two, and user a will upvote this vote with pledge 1 token
         let proposal_code = Code::Hash(new_hash.value(), "new_proposal".into());
         let proposal = SessionBuilder::new(
             proposal_code,
@@ -135,12 +146,21 @@ mod tests {
         .with_authorization_keys(&[account_a])
         .build();
         context.run(proposal);
-        dbg!(context
+
+        println!("Now first proposal is create by uesr a, and user a vote upvote with amount 1.");
+
+        // after create proposal, this will show the account_a only have `9999999` token now
+        context
             .query(account_a, &["accounting".into()])
             .unwrap()
             .into_t::<Vec<(AccountHash, U256)>>()
-            .unwrap());
+            .unwrap().into_iter().enumerate().map(|(index,(_,f))|{
+                println!("User {}: {}",&index,f)
+            }).count();
 
+        // other user pledge token for vote
+        // user b pledge 20 token this will hit limit to make contract decide execute the proposal or not.
+        // and after execute proposal. user will get back their money with reward
         let vote_code = Code::Hash(new_hash.value(), "vote_by_pledges".into());
         let vote = SessionBuilder::new(
             vote_code,
@@ -153,11 +173,19 @@ mod tests {
         .build();
         context.run(vote);
 
-        dbg!(context
+        println!("Now another user voted, and proposal hit the limit of vote, it will be executed.");
+
+        // so this will show after the reward been setting to 2.
+        // user will get back their money with reward two.
+        // So now user_a have 10000002,
+        // user _b have 10000002 too
+        context
             .query(account_a, &["accounting".into()])
             .unwrap()
             .into_t::<Vec<(AccountHash, U256)>>()
-            .unwrap());
+            .unwrap().into_iter().enumerate().map(|(index,(_,f))|{
+                println!("User {}: {}",&index,f)
+            }).count();
     }
 }
 
