@@ -129,11 +129,11 @@ pub extern "C" fn vote_by_pledges() {
     }
     if pool.0 + pool.1 >= vote_limit {
         update_key::<Option<(U256, U256)>>("pool", None);
-        pledges_back(pool.0 > pool.1);
-        update_key::<Option<Vec<(AccountHash, U256, bool)>>>("pledges", None);
         if pool.0 > pool.1 {
             execute()
         }
+        pledges_back(pool.0 > pool.1);
+        update_key::<Option<Vec<(AccountHash, U256, bool)>>>("pledges", None);
         update_key::<Option<String>>("proposal",None);
         update_key::<Option<U256>>("vote_limit",None);
     } else {
@@ -191,7 +191,7 @@ pub extern "C" fn new_proposal() {
     let pledge: Vec<(AccountHash, U256, bool)> = vec![];
     update_key("pledges", Some(pledge));
 
-    // // Save creator's vote
+    // Save creator's vote
     if let Some(mut pool) = read_key::<Option<(U256, U256)>>("pool") {
         if amount > U256::from(0) {
             pledges(caller, amount, vote);
