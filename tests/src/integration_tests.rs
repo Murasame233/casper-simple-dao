@@ -147,7 +147,7 @@ mod tests {
         .build();
         context.run(proposal);
 
-        println!("Now first proposal is create by uesr a, and user a vote upvote with amount 1.");
+        println!("Now first proposal is create by uesr a, and user a vote upvote with amount 1. this proposal will set reward to 2");
 
         // after create proposal, this will show the account_a only have `9999999` token now
         context
@@ -173,7 +173,7 @@ mod tests {
         .build();
         context.run(vote);
 
-        println!("Now another user voted, and proposal hit the limit of vote, it will be executed.");
+        println!("Now another user voted, and proposal hit the limit of vote, it will be executed. And users' money will back with reward");
 
         // so this will show after the reward been setting to 2.
         // user will get back their money with reward two.
