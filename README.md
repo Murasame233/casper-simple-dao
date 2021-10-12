@@ -6,6 +6,8 @@ This project implement a simple DAO on casper blockchain.
 
 # run test
 `make test`
+the test will have output. See the output you can know how it works simply.
+And view the test code, you can know it detailed.
 
 # P.S.
 
